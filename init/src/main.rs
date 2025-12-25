@@ -1,52 +1,39 @@
-//! Init - Processo Init do Redstone OS
+//! Init Process - PID 1
 //!
-//! PID 1 - Primeiro processo userspace.
-//! Mostra mensagem de boas-vindas e inicializa o sistema.
+//! Primeiro processo userspace do Redstone OS
 
 #![no_std]
 #![no_main]
 
 use core::panic::PanicInfo;
 
-/// Syscall write via int 0x80
-#[inline]
-unsafe fn syscall_write(fd: u64, buf: *const u8, len: u64) -> u64 {
-    let ret: u64;
-    core::arch::asm!(
-        "mov rax, 1",      // SYS_WRITE
-        "int 0x80",
-        in("rdi") fd,
-        in("rsi") buf,
-        in("rdx") len,
-        lateout("rax") ret,
-        options(nostack, preserves_flags)
-    );
-    ret
-}
-
-/// Escreve string em stdout
-fn print(s: &str) {
-    unsafe {
-        syscall_write(1, s.as_ptr(), s.len() as u64);
-    }
-}
-
-/// Ponto de entrada do init
+/// Entry point do processo init
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
-    // Mensagem de boas-vindas
-    print("\n");
-    print("╔════════════════════════════════════════╗\n");
-    print("║   Bem-vindo ao Redstone OS v0.3.5!   ║\n");
-    print("╚════════════════════════════════════════╝\n");
-    print("\n");
-    print("Sistema inicializado com sucesso!\n");
-    print("\n");
-    print("Init (PID 1) executando...\n");
-    print("\n");
-    print("> _\n");
+    // Banner ASCII do Redstone OS
+    print_str("\n\n");
+    print_str("         ██████╗ ███████╗██████╗ ███████╗████████╗ ██████╗ ███╗   ██╗███████╗\n");
+    print_str("         ██╔══██╗██╔════╝██╔══██╗██╔════╝╚══██╔══╝██╔═══██╗████╗  ██║██╔════╝\n");
+    print_str("         ██████╔╝█████╗  ██║  ██║███████╗   ██║   ██║   ██║██╔██╗ ██║█████╗  \n");
+    print_str("         ██╔══██╗██╔══╝  ██║  ██║╚════██║   ██║   ██║   ██║██║╚██╗██║██╔══╝  \n");
+    print_str("         ██║  ██║███████╗██████╔╝███████║   ██║   ╚██████╔╝██║ ╚████║███████╗\n");
+    print_str("         ╚═╝  ╚═╝╚══════╝╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚══════╝\n");
+    print_str("\n");
+    print_str("         Redstone OS v0.0.1 - A modern microkernel operating system\n");
+    print_str("\n");
+    print_str("         Kernel: 0.1.0 (x86_64)\n");
+    print_str("         Memory: 512 MB\n");
+    print_str("         Uptime: 0 days, 0 hours, 0 minutes\n");
+    print_str("\n");
+    print_str("redstone login: root\n");
+    print_str("Password: \n");
+    print_str("\n");
+    print_str("Welcome to Redstone OS!\n");
+    print_str("\n");
+    print_str("root@redstone:~# _\n");
+    print_str("\n");
 
-    // Loop infinito (init nunca deve terminar)
+    // Loop infinito - processo init nunca termina
     loop {
         unsafe {
             core::arch::asm!("hlt");
@@ -54,10 +41,24 @@ pub extern "C" fn _start() -> ! {
     }
 }
 
+/// Imprime string no console (via serial port)
+fn print_str(s: &str) {
+    for byte in s.bytes() {
+        unsafe {
+            // COM1 port (0x3F8)
+            core::arch::asm!(
+                "out dx, al",
+                in("dx") 0x3F8u16,
+                in("al") byte,
+                options(nomem, nostack)
+            );
+        }
+    }
+}
+
 /// Panic handler
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    print("\n[PANIC] Init process panicked!\n");
     loop {
         unsafe {
             core::arch::asm!("hlt");
