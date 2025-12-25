@@ -12,12 +12,11 @@ use core::panic::PanicInfo;
 pub extern "C" fn _start() -> ! {
     // Banner ASCII do Redstone OS
     print_str("\n\n");
-    print_str("         ██████╗ ███████╗██████╗ ███████╗████████╗ ██████╗ ███╗   ██╗███████╗\n");
-    print_str("         ██╔══██╗██╔════╝██╔══██╗██╔════╝╚══██╔══╝██╔═══██╗████╗  ██║██╔════╝\n");
-    print_str("         ██████╔╝█████╗  ██║  ██║███████╗   ██║   ██║   ██║██╔██╗ ██║█████╗  \n");
-    print_str("         ██╔══██╗██╔══╝  ██║  ██║╚════██║   ██║   ██║   ██║██║╚██╗██║██╔══╝  \n");
-    print_str("         ██║  ██║███████╗██████╔╝███████║   ██║   ╚██████╔╝██║ ╚████║███████╗\n");
-    print_str("         ╚═╝  ╚═╝╚══════╝╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═══╝╚══════╝\n");
+    print_str("    ____           __      __                  \n");
+    print_str("   / __ \\___  ____/ /_____/ /_____  ____  ___ \n");
+    print_str("  / /_/ / _ \\/ __  / ___/ __/ __ \\/ __ \\/ _ \\ \n");
+    print_str(" / _, _/  __/ /_/ (__  ) /_/ /_/ / / / /  __/ \n");
+    print_str("/_/ |_|\\___/\\__,_/____/\\__/\\____/_/ /_/\\___/  \n");
     print_str("\n");
     print_str("         Redstone OS v0.0.1 - A modern microkernel operating system\n");
     print_str("\n");
@@ -40,18 +39,27 @@ pub extern "C" fn _start() -> ! {
     }
 }
 
-/// Imprime string no console (via serial port)
+/// Imprime string no console (via Syscall)
 fn print_str(s: &str) {
-    for byte in s.bytes() {
-        unsafe {
-            // COM1 port (0x3F8)
-            core::arch::asm!(
-                "out dx, al",
-                in("dx") 0x3F8u16,
-                in("al") byte,
-                options(nomem, nostack)
-            );
-        }
+    // Syscall ID 1 = SYS_WRITE
+    // Arg1 (RDI) = FD (1 = stdout)
+    // Arg2 (RSI) = Ptr
+    // Arg3 (RDX) = Len
+    let ptr = s.as_ptr() as u64;
+    let len = s.len() as u64;
+
+    unsafe {
+        core::arch::asm!(
+            "int 0x80",
+            in("rax") 1u64, // Syscall Num
+            in("rdi") 1u64, // FD
+            in("rsi") ptr,  // Buffer
+            in("rdx") len,  // Len
+            lateout("rax") _,
+            lateout("rcx") _, // Clobbered by syscall (if sysret) or safe for int
+            lateout("r11") _, // Clobbered
+            options(nostack, preserves_flags) // INT instruction preserves flags, but handler logic might change things if not careful
+        );
     }
 }
 
